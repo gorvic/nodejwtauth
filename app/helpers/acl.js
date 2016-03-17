@@ -32,9 +32,9 @@ actions.ALL = [
     actions.DELETE
 ];
 acl = new acl(new acl.mongodbBackend(mongoose.connection.db, 'acl_'));
-acl.getRoleList = function (weight) {
+acl.getRoleList = function (weight,cb) {
     acl_role_name.find({key:{$lt:weight}}, function (err,resp) {
-        console.log(resp);
+        return cb(err,resp);
     })
 }
 ///////////////////////////////////////////// USERS //////////////////////////////////////////
@@ -68,5 +68,4 @@ acl.consts = {
     resources: resources,
     actions: actions,
 }
-
 module.exports = acl;
