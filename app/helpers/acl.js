@@ -32,6 +32,11 @@ actions.ALL = [
     actions.DELETE
 ];
 acl = new acl(new acl.mongodbBackend(mongoose.connection.db, 'acl_'));
+acl.getRoleList = function (weight) {
+    acl_role_name.find({key:{$lt:weight}}, function (err,resp) {
+        console.log(resp);
+    })
+}
 ///////////////////////////////////////////// USERS //////////////////////////////////////////
 acl.allow(
     roles.SUPER_ADMIN,
