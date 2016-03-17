@@ -1,0 +1,27 @@
+[
+  {
+    "key": 1000,
+    "name": "root",
+    "acl_id": "ROOT"
+  },
+  {
+    "key": 400,
+    "name": "Super Admin",
+    "acl_id": "SUPER_ADMIN"
+  },
+  {
+    "key": 300,
+    "name": "Organization Admin",
+    "acl_id": "ORGANIZATION_ADMIN"
+  },
+  {
+    "key": 200,
+    "name": "Entity Admin",
+    "acl_id": "ENTITY_ADMIN"
+  },
+  {
+    "key": 100,
+    "name": "User",
+    "acl_id": "USER"
+  }
+]
