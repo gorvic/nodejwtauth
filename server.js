@@ -6,19 +6,17 @@ var mongoose   = require('mongoose');
 var config 	   = require('./config');
 var path 	   = require('path');
 
+var cors = require('cors');
+
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 app.use(bodyParser.json()); // for parsing application/json
 
-//Cors
-app.use(function(req, res, next) {
-	res.setHeader('Access-Control-Allow-Origin', '*');
-	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type, Authorization,x-access-token');
-	next();
-});
 
 app.use(morgan('dev')); //logging
 mongoose.connect(config.database); //mongo
+
+//Cors
+app.use(cors());
 
 //Basic routes
 var basicRoutes = express.Router();

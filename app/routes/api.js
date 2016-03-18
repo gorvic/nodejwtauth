@@ -10,21 +10,21 @@ module.exports = function (app, express) {
 
     // route to generate signup user
     apiRouter
-        .route('/signup')
+        .route('/auth/signup')
         .post(function (req, res) {
 
             var _this = this;
 
-            var email = req.body.email;
-                password = req.body.password,
-                isAdmin = req.body.isAdmin;
+            //var email = req.body.email,
+            //    password = req.body.password,
+            //    isAdmin = req.body.role;
 
             var credentials = {
                 email: req.body.email,
                 password: req.body.password,
-                isAdmin: req.body.isAdmin
+                isAdmin: req.body.role
             };
-            _this.credentials  = credentials;
+            _this.credentials = credentials;
             //var isValid = (email && password);
 
             User.findOne(
@@ -37,7 +37,7 @@ module.exports = function (app, express) {
 
                         signupUser.email = _this.credentials.email;
                         signupUser.password = _this.credentials.password;
-                        signupUser.isAdmin = _this.credentials.isAdmin;
+                        signupUser.isAdmin = _this.credentials.isAdmin; //role = true
                         signupUser.save();
 
                         res.json({
@@ -49,29 +49,28 @@ module.exports = function (app, express) {
                         console.log(user);
                         res.status(403)
                             .json(
-                                 {
-                                success: false,
-                                message: 'User ' + user.email + ' is already exist!'
-                            });
+                                {
+                                    success: false,
+                                    message: 'User ' + user.email + ' is already exist!'
+                                });
                     }
                 });
         });
 
-    //
     // route to authenticate a user (POST http://localhost:8080/api/)
     apiRouter
-        .route('/login')
+        .route('/auth/login')
         //.get(function (req, res) { res.send('Hello')})
         .post(function (req, res) {
             console.log(req.body.email);
 
             var _this = this;
 
-            credentials = {
+            var credentials = {
                 //email: req.param('email'),
                 //password: req.param('password')
-                email:req.body.email,
-                password:req.body.password
+                email: req.body.email,
+                password: req.body.password
             };
 
             _this.credentials = credentials;
@@ -131,9 +130,7 @@ module.exports = function (app, express) {
         // check header or url parameters or post parameters for token
         var token =
             req.body.token
-            || req.param('token')
             || req.headers['x-access-token']; //+ssl
-                // https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens#comment-2534279249
 
         // decode token
         if (token) {
@@ -164,6 +161,43 @@ module.exports = function (app, express) {
         }
 
 
+    });
+
+    apiRouter.post('/auth/whoami', function (req, res) {
+        //is auth.
+
+        User.findOne({
+            email: req.decoded.email
+        }, function (err, user) {
+
+            var data ;
+
+            if (err) {
+                data = {
+                    messages: {
+                        Error: [err]
+                    }
+                }
+            } else {
+                var role = user.isAdmin ? 'Admin' : 'User';
+                var roles = [{
+                    name: role
+                }];
+                data = {
+                    user: {
+                        email: user.email,
+                        roles: roles
+                    },
+                    messages: {
+                        Success: [
+                            'Successfully indentified user'
+                        ]
+                    }
+                }
+
+            }
+            res.json(data);
+        });
     });
 
     // test route to make sure everything is working
@@ -202,27 +236,27 @@ module.exports = function (app, express) {
         // get all the users (accessed at GET http://localhost:8080/api/users)
         .get(function (req, res) {
 
-           if (req.decoded.isAdmin) {
-               User.find(function (err, users) {
-                   if (err) {
-                       res.send(err);
-                   }
-                   // return the users
-                   res.json(users);
-               });
-           } else {
-               User.findOne(
-                   {'email': req.decoded.email},
-                   function (err, user) {
-                       if (err) res.send(err);
+            if (req.decoded.isAdmin) {
+                User.find(function (err, users) {
+                    if (err) {
+                        res.send(err);
+                    }
+                    // return the users
+                    res.json(users);
+                });
+            } else {
+                User.findOne(
+                    {'email': req.decoded.email},
+                    function (err, user) {
+                        if (err) res.send(err);
 
-                       // return that user
-                       res.send([{
-                           email: user.email,
-                           isAdmin: user.isAdmin
-                       }]);
-                   });
-           }
+                        // return that user
+                        res.send([{
+                            email: user.email,
+                            isAdmin: user.isAdmin
+                        }]);
+                    });
+            }
         });
 
     // on routes that end in /users/:user_id
