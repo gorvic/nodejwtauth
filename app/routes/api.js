@@ -1,8 +1,9 @@
 var User = require('../models/user');
 var jwt = require('jsonwebtoken');
-var config = require('../../config');
+var configAuth = require('../../config/auth');
+var crypto = require('crypto');
 
-var secretKey = config.secret;
+var secretKey = configAuth.tokenAuth.secret;
 
 module.exports = function (app, express) {
 
@@ -14,10 +15,6 @@ module.exports = function (app, express) {
         .post(function (req, res) {
 
             var _this = this;
-
-            //var email = req.body.email,
-            //    password = req.body.password,
-            //    isAdmin = req.body.role;
 
             var credentials = {
                 email: req.body.email,
@@ -56,6 +53,7 @@ module.exports = function (app, express) {
                     }
                 });
         });
+
 
     // route to authenticate a user (POST http://localhost:8080/api/)
     apiRouter
@@ -102,7 +100,8 @@ module.exports = function (app, express) {
                             var payload = {
                                 email: user.email,
                                 username: user.username,
-                                isAdmin: user.isAdmin
+                                isAdmin: user.isAdmin,
+                                provider: 'local'
                             };
 
                             var token = jwt.sign(payload
@@ -121,6 +120,97 @@ module.exports = function (app, express) {
                     }
                 );
         });
+
+    apiRouter.post('/auth/facebook', function (req, res, next) {
+
+        var profile = req.body.profile;
+        var signedRequest = req.body.signedRequest;
+        var encodedSignature = signedRequest.split('.')[0];
+        var payload = signedRequest.split('.')[1];
+
+        var appSecret = configAuth.facebookAuth.clientSecret;
+
+        var expectedSignature = crypto.createHmac('sha256', appSecret).update(payload).digest('base64');
+        expectedSignature = expectedSignature.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        if (encodedSignature !== expectedSignature) {
+            return res.status(400).json(
+                {
+                    //data: {
+                    success: false,
+                    message: 'Invalid Request Signature'
+                    //}
+                }
+            );
+        }
+
+        User.findOne(
+            {
+                'facebook.id': profile.id
+            },
+            function (err, existingUser) {
+
+                if (existingUser) {
+
+                    var payload = {
+                        email: existingUser.facebook.email,
+                        username: existingUser.facebook.name,
+                        isAdmin: existingUser.isAdmin,
+                        provider: 'facebook'
+                    };
+
+                    var token = jwt.sign(payload
+                        , secretKey
+                        , {
+                            expiresIn: 60 * 60 // 1 hour
+                        });
+
+                    // return the information including token as JSON
+                    return res.json({
+                        success: true,
+                        message: 'Got token!',
+                        token: token
+                    });
+                }
+
+                var newUser = new User();
+
+                // set all of the facebook information in our user model
+                //conforms schema http://portablecontacts.net/draft-spec.html#schema
+                newUser.facebook.id = profile.id; // set the users facebook id
+                newUser.facebook.token = token; // we will save the token that facebook provides to the user
+                newUser.facebook.name = profile.name;
+                //newUser.facebook.name = profile.name.givenName + ' ' + profile.name.familyName; // look at the passport user profile to see how names are returned
+                newUser.facebook.email = profile.email; // facebook can return multiple emails so we'll take the first
+
+                // save our user to the database
+                newUser.save(function (err) {
+                    if (err)
+                        throw err;
+
+                });
+
+                var payload = {
+                    email: newUser.facebook.email,
+                    username: newUser.facebook.name,
+                    isAdmin: newUser.isAdmin,
+                    provider: 'facebook'
+                };
+
+                var token = jwt.sign(payload, secretKey,
+                    {
+                        expiresIn: 60 * 60 // 1 hour
+                    });
+
+                // return the information including token as JSON
+                res.json({
+                    success: true,
+                    message: 'Got token!',
+                    token: token
+                });
+
+            });
+    });
 
     // route middleware to verify a token
     apiRouter.use(function (req, res, next) {
@@ -157,47 +247,70 @@ module.exports = function (app, express) {
                 success: false,
                 message: 'No token provided.'
             });
-
         }
+    });
 
-
+    // route for logging out
+    apiRouter.get('/logout', function (req, res) {
+        req.logout();
+        res.redirect('/');
     });
 
     apiRouter.post('/auth/whoami', function (req, res) {
-        //is auth.
 
-        User.findOne({
+        var searchObj = {
             email: req.decoded.email
-        }, function (err, user) {
+        };
+        var authProvider = 'local';
+        if (req.decoded.hasOwnProperty("provider") && req.decoded.provider === 'facebook') {
+            searchObj = {
+                'facebook.email': req.decoded.email
+            };
+            authProvider = 'facebook';
+        }
 
-            var data ;
+        User.findOne(searchObj, 'name email isAdmin facebook.email facebook.name', //select fields
+            function (err, user) {
 
-            if (err) {
-                data = {
-                    messages: {
-                        Error: [err]
+                var data;
+
+                if (err) {
+                    data = {
+                        messages: {
+                            Error: [err]
+                        }
                     }
-                }
-            } else {
-                var role = user.isAdmin ? 'Admin' : 'User';
-                var roles = [{
-                    name: role
-                }];
-                data = {
-                    user: {
-                        email: user.email,
-                        roles: roles
-                    },
-                    messages: {
+                } else {
+                    var role = Object.hasOwnProperty(user, 'isAdmin') && user.isAdmin ? 'Admin' : 'User';
+                    var roles = [{
+                        name: role
+                    }];
+                    //TODO refactor
+                    if ( authProvider == 'facebook' ) {
+                        data = {
+                            user: {
+                                email: user.facebook.email,
+                                authProvider: authProvider,
+                                roles: roles
+                            }
+                        }
+                    } else {
+                        data = {
+                            user: {
+                                email: user.email,
+                                authProvider: authProvider,
+                                roles: roles
+                            }
+                        }
+                    }
+                    data.messages = {
                         Success: [
-                            'Successfully indentified user'
+                            'Successfully identified user'
                         ]
                     }
                 }
-
-            }
-            res.json(data);
-        });
+                res.json(data);
+            });
     });
 
     // test route to make sure everything is working

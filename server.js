@@ -3,19 +3,19 @@ var app        = express();
 var bodyParser = require('body-parser');
 var morgan     = require('morgan');
 var mongoose   = require('mongoose');
-var config 	   = require('./config');
 var path 	   = require('path');
-
-var cors = require('cors');
 
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 app.use(bodyParser.json()); // for parsing application/json
 
+var configDB 	   = require('./config/database');
+var config = require('./config/common');
+mongoose.connect(configDB.url); //mongo
 
 app.use(morgan('dev')); //logging
-mongoose.connect(config.database); //mongo
 
 //Cors
+var cors = require('cors');
 app.use(cors());
 
 //Basic routes
