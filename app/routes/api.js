@@ -177,6 +177,8 @@ module.exports = function (app, express) {
 
                 // set all of the facebook information in our user model
                 //conforms schema http://portablecontacts.net/draft-spec.html#schema
+                //newUser.email = profile.email;
+                //newUser.facebook = {};
                 newUser.facebook.id = profile.id; // set the users facebook id
                 newUser.facebook.token = token; // we will save the token that facebook provides to the user
                 newUser.facebook.name = profile.name;
@@ -203,7 +205,7 @@ module.exports = function (app, express) {
                     });
 
                 // return the information including token as JSON
-                res.json({
+                return res.json({
                     success: true,
                     message: 'Got token!',
                     token: token
@@ -258,9 +260,12 @@ module.exports = function (app, express) {
 
     apiRouter.post('/auth/whoami', function (req, res) {
 
+        var _this = this;
+
         var searchObj = {
             email: req.decoded.email
         };
+
         var authProvider = 'local';
         if (req.decoded.hasOwnProperty("provider") && req.decoded.provider === 'facebook') {
             searchObj = {
@@ -268,6 +273,8 @@ module.exports = function (app, express) {
             };
             authProvider = 'facebook';
         }
+
+        _this.searchObj = searchObj;
 
         User.findOne(searchObj, 'name email isAdmin facebook.email facebook.name', //select fields
             function (err, user) {
